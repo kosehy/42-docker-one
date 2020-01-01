@@ -1,0 +1,5 @@
+docker run -d --name lair -p 8080:80 --link spawning-pool:mysql wordpress
+#check virtual machine IP address
+docker-machine ls
+ip-address:8080
+ex) http://192.168.99.106:8080/
