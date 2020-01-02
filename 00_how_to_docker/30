@@ -1,0 +1,2 @@
+#https://www.youtube.com/watch?v=bU2NNFJ-UXA
+docker service scale marines=20

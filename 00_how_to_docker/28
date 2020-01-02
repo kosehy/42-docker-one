@@ -1,0 +1,8 @@
+#https://hub.docker.com/r/42school/marine-squad
+docker service create -d \
+--replicas 2 \
+--name marines \
+--network overmind \
+-e OC_USERNAME="sko" \
+-e OC_PASSWD="sko" \
+42school/marine-squad

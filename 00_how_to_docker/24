@@ -1,0 +1,7 @@
+#https://docs.docker.com/engine/swarm/secrets/
+docker service create -d \
+				--name orbital-command \
+				--network overmind \
+				-e RABBITMQ_DEFAULT_USER="sko" \
+				-e RABBITMQ_DEFAULT_PASS="sko" \
+				rabbitmq

@@ -1,0 +1,8 @@
+#https://hub.docker.com/r/42school/engineering-bay
+docker service create -d \
+--replicas 2 \
+--name engineering-bay \
+--network overmind \
+-e OC_USERNAME="sko" \
+-e OC_PASSWD="sko" \
+42school/engineering-bay
