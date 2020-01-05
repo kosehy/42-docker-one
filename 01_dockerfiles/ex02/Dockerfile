@@ -1,6 +1,8 @@
-FROM ruby
-MAINTAINER sko <sko@student.42.us.org>
-RUN apt-get update && \
-	apt-get install -y build-essential libpq-dev nodejs sqlite3
-# Resources:
-# https://github.com/railstutorial/sample_app_2nd_ed
+FROM ft-rails:on-build
+
+EXPOSE 3000
+CMD [ "rails" , "s", "-b", "0.0.0.0", "-p", "3000"]
+
+#usage
+#docker build -t ex02 .
+#docker run -it --rm -p 3000:3000 ex02
