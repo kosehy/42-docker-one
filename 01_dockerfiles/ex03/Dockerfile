@@ -1,45 +1,36 @@
-FROM ubuntu:latest
-RUN apt-get update -y && apt-get upgrade -y && \
-	apt-get install -y curl openssh-server ca-certificates && \
-	apt-get install -y postfix && apt-get install -y tzdata
+FROM debian:stable
 
-WORKDIR /tmp
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TERM=xterm
+ARG GITLAB_IP=localhost
 
-RUN curl -LO https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.deb.sh && chmod 777 script.deb.sh && ./script.deb.sh
+# tzdata > https://gitlab.com/gitlab-org/omnibus-gitlab/issues/2229
+RUN apt-get update -y && \
+	apt-get upgrade -y && \
+	apt-get install -y curl openssh-server ca-certificates git tzdata
 
-RUN apt-get install -y gitlab-ce
+# Add GitLab repo
+RUN curl -sS https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.deb.sh | bash
 
-EXPOSE 80 443 22 22222
+# Install GitLab package
+RUN apt-get update -y && apt-get install -y --no-install-recommends gitlab-ce
 
-RUN mkdir -p /etc/ssl/private && \
-		mkdir -p /etc/ssl/certs && \
-		mkdir -p /etc/gitlab/ssl
+# Create self-signed certificate
+RUN mkdir -p /etc/gitlab/ssl && \
+	chmod 700 /etc/gitlab/ssl && \
+	openssl req -new -x509 -nodes -newkey rsa:2048 -keyout /etc/gitlab/ssl/gitlab.key -out /etc/gitlab/ssl/gitlab.crt -days 365 -subj /CN=${GITLAB_IP} && \
+	sed -i -e "s|^\(external_url\) .*$|\1 'https://${GITLAB_IP}'|" \
+	-e "s|^# \(nginx\['ssl_certificate'\] = \"/etc/gitlab/ssl\)/.*$|\1/gitlab.crt\"|" \
+	-e "s|^# \(nginx\['ssl_certificate_key'\] = \"/etc/gitlab/ssl\)/.*$|\1/gitlab.key\"|" \
+	-e "s|^# \(gitlab_rails\['gitlab_shell_ssh_port'\] = 22\)$|\1|" \
+	/etc/gitlab/gitlab.rb
 
-RUN openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-		-subj "/C=UK/ST=GGgg/L=GGgg/O=GGgg/OU=GGgg/CN=192.168.99.100" \
-		-keyout /etc/gitlab/ssl/key.key \
-		-out /etc/gitlab/ssl/cert.crt
+RUN echo "grafana['enable'] = false" >> /etc/gitlab/gitlab.rb
 
-RUN echo "nginx['ssl_certificate'] = \"/etc/gitlab/ssl/cert.crt\""  >> /etc/gitlab/gitlab.rb && \
-	echo "nginx['ssl_certificate_key'] = \"/etc/gitlab/ssl/key.key\"" >> /etc/gitlab/gitlab.rb && \
-	echo "nginx['redirect_http_to_https'] = true" >> /etc/gitlab/gitlab.rb && \
-	echo "nginx['redirect_http_to_https_port'] = 80" >> /etc/gitlab/gitlab.rb && \
-	echo "letsencrypt['enable'] = false" >> /etc/gitlab/gitlab.rb && \
-	echo "gitlab_rails['gitlab_ssh_host'] = '192.168.99.100'" >> /etc/gitlab/gitlab.rb && \
-	echo "gitlab_rails['gitlab_shell_ssh_port'] = 22222" >> /etc/gitlab/gitlab.rb
+EXPOSE 443
+EXPOSE 22
 
-RUN (/opt/gitlab/embedded/bin/runsvdir-start &) && gitlab-ctl reconfigure
-RUN usermod -a -G $(cat /etc/group | awk -F ':' '{print $1}' | tr '\n' ',' | sed 's/,$//g') git
-RUN usermod -a -G $(cat /etc/group | awk -F ':' '{print $1}' | tr '\n' ',' | sed 's/,$//g') gitlab-www
-
-RUN echo "Port 22222" >> /etc/ssh/ssh_config
-RUN echo "Port 22222" >> /etc/ssh/sshd_config
-RUN mkdir -p /run/sshd
-
-ENTRYPOINT cat /etc/gitlab/gitlab.rb | awk -v ip=$IP -v q="'" '{if ($1 == "external_url") {$2 = q"https://"ip"/"q} print $0}' > tmp.gg && \
-				cat tmp.gg > /etc/gitlab/gitlab.rb && \
-				/usr/sbin/sshd && \
-				rm -f tmp.gg && \					
+ENTRYPOINT  service ssh start && \
 				(/opt/gitlab/embedded/bin/runsvdir-start &) && \
 				gitlab-ctl reconfigure && \
 				tail -f /dev/null
