@@ -1,36 +1,24 @@
-FROM debian:stable
+FROM ubuntu:latest
 
-ENV DEBIAN_FRONTEND=noninteractive
-ENV TERM=xterm
-ARG GITLAB_IP=localhost
+MAINTAINER sko <sko@student.42.us.org>
 
-# tzdata > https://gitlab.com/gitlab-org/omnibus-gitlab/issues/2229
-RUN apt-get update -y && \
-	apt-get upgrade -y && \
-	apt-get install -y curl openssh-server ca-certificates git tzdata
+RUN apt-get update -y && apt-get upgrade -y && \
+	apt-get install -y curl openssh-server ca-certificates && \
+	apt-get install -y postfix && apt-get install -y tzdata
 
-# Add GitLab repo
-RUN curl -sS https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.deb.sh | bash
+WORKDIR /tmp
 
-# Install GitLab package
-RUN apt-get update -y && apt-get install -y --no-install-recommends gitlab-ce
+RUN curl -LO https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.deb.sh && chmod 777 script.deb.sh && ./script.deb.sh
 
-# Create self-signed certificate
-RUN mkdir -p /etc/gitlab/ssl && \
-	chmod 700 /etc/gitlab/ssl && \
-	openssl req -new -x509 -nodes -newkey rsa:2048 -keyout /etc/gitlab/ssl/gitlab.key -out /etc/gitlab/ssl/gitlab.crt -days 365 -subj /CN=${GITLAB_IP} && \
-	sed -i -e "s|^\(external_url\) .*$|\1 'https://${GITLAB_IP}'|" \
-	-e "s|^# \(nginx\['ssl_certificate'\] = \"/etc/gitlab/ssl\)/.*$|\1/gitlab.crt\"|" \
-	-e "s|^# \(nginx\['ssl_certificate_key'\] = \"/etc/gitlab/ssl\)/.*$|\1/gitlab.key\"|" \
-	-e "s|^# \(gitlab_rails\['gitlab_shell_ssh_port'\] = 22\)$|\1|" \
-	/etc/gitlab/gitlab.rb
+RUN apt-get install -y gitlab-ce
 
-RUN echo "grafana['enable'] = false" >> /etc/gitlab/gitlab.rb
+EXPOSE 80 443 22 22222
 
-EXPOSE 443
-EXPOSE 22
+RUN apt-get update && apt-get install nano
 
-ENTRYPOINT  service ssh start && \
-				(/opt/gitlab/embedded/bin/runsvdir-start &) && \
-				gitlab-ctl reconfigure && \
-				tail -f /dev/null
+#docker run -it --rm -P --privileged ex03 bash
+# Modify the gitlab.rb file
+#nano/etc/gitlab/gitlab.rb
+#unicorn ['worker_processes'] = 3
+
+#(/opt/gitlab/embedded/bin/runsvdir-start &) && gitlab-ctl reconfigure && tail -f /dev/null
