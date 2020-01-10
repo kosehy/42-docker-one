@@ -23,3 +23,5 @@ EXPOSE 25565
 
 #Automatically accept Minecraft EULA, and start Minecraft server
 CMD echo eula=true > eula.txt && java -jar /minecraft/server.jar
+
+#docker run --rm -it -p 25565:25565 b04
